@@ -1796,6 +1796,78 @@ void main() {
       final events = await manager.getImageFile(url, key: 'my-key').toList();
       expect(events.whereType<FileInfo>().isNotEmpty, isTrue);
     });
+
+    test('resizes a static webp on disk', () async {
+      manager = DefaultCacheManager(
+        httpClientFactory: () => http_testing.MockClient(
+          (request) async => http.Response.bytes(kStaticWebpImage, 200),
+        ),
+      );
+
+      const url = 'https://example.com/static.webp';
+      final events = await manager.getImageFile(url, maxWidth: 4).toList();
+      final bytes = await events.whereType<FileInfo>().last.file.readAsBytes();
+
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      expect(frame.image.width, 4);
+      frame.image.dispose();
+      codec.dispose();
+    });
+
+    test('keeps an animated webp untouched instead of flattening it', () async {
+      manager = DefaultCacheManager(
+        httpClientFactory: () => http_testing.MockClient(
+          (request) async => http.Response.bytes(kAnimatedWebpImage, 200),
+        ),
+      );
+
+      const url = 'https://example.com/animated.webp';
+      final events = await manager
+          .getImageFile(url, maxWidth: 4)
+          .toList()
+          .timeout(const Duration(seconds: 10));
+      final bytes = await events.whereType<FileInfo>().last.file.readAsBytes();
+
+      expect(bytes, kAnimatedWebpImage);
+    });
+
+    test('keeps an animated png untouched instead of flattening it', () async {
+      manager = DefaultCacheManager(
+        httpClientFactory: () => http_testing.MockClient(
+          (request) async => http.Response.bytes(kAnimatedPngImage, 200),
+        ),
+      );
+
+      const url = 'https://example.com/animated.png';
+      final events = await manager
+          .getImageFile(url, maxWidth: 4)
+          .toList()
+          .timeout(const Duration(seconds: 10));
+      final bytes = await events.whereType<FileInfo>().last.file.readAsBytes();
+
+      expect(bytes, kAnimatedPngImage);
+    });
+
+    test('keeps a file the codec cannot decode untouched', () async {
+      final svg = '<svg xmlns="http://www.w3.org/2000/svg" width="8" '
+              'height="8"><rect width="8" height="8"/></svg>'
+          .codeUnits;
+      manager = DefaultCacheManager(
+        httpClientFactory: () => http_testing.MockClient(
+          (request) async => http.Response.bytes(svg, 200),
+        ),
+      );
+
+      const url = 'https://example.com/vector.png';
+      final events = await manager
+          .getImageFile(url, maxWidth: 4)
+          .toList()
+          .timeout(const Duration(seconds: 10));
+      final bytes = await events.whereType<FileInfo>().last.file.readAsBytes();
+
+      expect(bytes, svg);
+    });
   });
 
   // ---- Helper method tests ----
