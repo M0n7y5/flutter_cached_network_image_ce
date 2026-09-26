@@ -36,7 +36,7 @@ const _kServedEntryGracePeriod = Duration(seconds: 30);
 /// entries. Only a bound on bookkeeping, not on how many entries are guarded.
 const _kServedEntryPruneThreshold = 64;
 
-const _supportedFileNames = ['jpg', 'jpeg', 'png', 'tga', 'cur', 'ico'];
+const _supportedFileNames = ['jpg', 'jpeg', 'png', 'tga', 'cur', 'ico', 'webp'];
 
 /// Sanitizes a key so it doesn't exceed Hive's 255-character limit for string keys.
 String _sanitizeBoxKey(String key) {
@@ -995,6 +995,22 @@ class DefaultCacheManager extends CacheManager with ImageCacheManager {
     if (!_supportedFileNames.contains(fileExtension)) {
       return originalFile;
     }
+
+    // Resizing keeps only the first frame, so leave animated images as-is.
+    // Must run before _decodeImage, which never completes for animated
+    // images until a frame is pumped.
+    final ui.Codec codec;
+    try {
+      codec = await ui.instantiateImageCodec(
+        await originalFile.file.readAsBytes(),
+      );
+    } on Object catch (_) {
+      // Not decodable here (e.g. SVG served at a .png URL); keep the original.
+      return originalFile;
+    }
+    final isAnimated = codec.frameCount > 1;
+    codec.dispose();
+    if (isAnimated) return originalFile;
 
     final image = await _decodeImage(originalFile.file);
 

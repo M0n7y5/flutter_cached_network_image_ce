@@ -1,3 +1,8 @@
+## [4.13.0] - 2026-09-26
+
+* **Feature:** `maxWidthDiskCache` / `maxHeightDiskCache` now resize WebP images on disk. Before, WebP files were stored at full size. As with JPEG and PNG, this applies when the URL path ends in `.webp`. Requested in issue #78.
+* **Fix:** Animated images (animated WebP, APNG) are no longer resized on disk. Resizing keeps only the first frame, so they are cached as the original file and keep animating.
+
 ## [4.12.0] - 2026-09-08
 
 * **Feature:** Added `animate` to `CachedNetworkImage` and `CachedNetworkImageProvider` (default `true`). With `animate: false` a multi-frame image such as a GIF shows its first frame and stops there, without decoding the rest. `animate` is part of the provider key, so toggling it at runtime resolves a different image stream: the widget paints nothing while that stream resolves, and which frame it starts on depends on what the `ImageCache` still holds. Wrap the widget in a `TickerMode` to pause and resume an animation in place. Requested in issue #21.
